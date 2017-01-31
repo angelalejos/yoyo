@@ -27,8 +27,8 @@
 #include <openssl/rand.h>
 
 #define BUFSIZE 1024 * 1024
-#define MAX_LINE 4096
 #define DEFAULT_CIPHER "aes-128-cbc"
+#define MAX_LINE 4096
 #define ROUNDS 64
 #define SALT_SIZE 16
 
@@ -70,7 +70,7 @@ main(int argc, char *argv[])
 
 	crypto_init();
 
-	if (pledge("cpath rpath stdio wpath", NULL) == -1)
+	if (pledge("cpath rpath stdio tty wpath", NULL) == -1)
 		err(1, "pledge");
 
 	while ((ch = getopt(argc, argv, "dv")) != -1) {
