@@ -204,10 +204,8 @@ filecrypt(char *infile, char *outfile, int enc)
 	blocksize = EVP_CIPHER_block_size(c->cipher);
 
 	if (verbose) {
-		printf("cipher: %s\nkey: %dbit\niv: %dbit\nsalt: %ldbit\n"
-		    "blocksize: %dbit\nrounds: %d\n", c->cipher_name,
-		    c->key_len * 8, c->iv_len * 8, sizeof(salt) * 8,
-		    blocksize * 8, rounds);
+		printf("cipher: %s blocksize: %dbit rounds: %d\n",
+		    c->cipher_name, blocksize * 8, rounds);
 	}
 
 	if ((c->fin = fopen(infile, "r")) == NULL)
@@ -236,8 +234,8 @@ filecrypt(char *infile, char *outfile, int enc)
 
 	if (verbose) {
 		print_value("salt", salt, sizeof(salt));
-		print_value("key", c->key, c->key_len);
 		print_value("iv", c->iv, c->iv_len);
+		print_value("key", c->key, c->key_len);
 	}
 
 	crypto_stream(c);
