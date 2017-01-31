@@ -1,14 +1,16 @@
 PROG=		filecrypt
 SRCS=		filecrypt.c
 
-DPADD=		${LIBCRYPTO} ${LIBUTIL}
-LDADD=		-lcrypto -lutil
+BINDIR=		/usr/local/bin
 
 CFLAGS+=	-Wall -Werror -ansi -pedantic
-CFLAGS+=	-Wstrict-prototypes -Wmissing-prototypes
 CFLAGS+=	-Wmissing-declarations
 CFLAGS+=	-Wshadow -Wpointer-arith
 CFLAGS+=	-Wsign-compare
+CFLAGS+=	-Wstrict-prototypes -Wmissing-prototypes
+
+DPADD=		${LIBCRYPTO} ${LIBUTIL}
+LDADD=		-lcrypto -lutil
 
 NOMAN=		noman
 
