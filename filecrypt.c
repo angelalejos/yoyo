@@ -31,6 +31,7 @@
 #define MAX_LINE 4096
 #define ROUNDS 64
 #define SALT_SIZE 16
+#define VERSION "1.0.1"
 
 struct cipher_info {
 	FILE *fin;
@@ -68,8 +69,6 @@ main(int argc, char *argv[])
 
 	dflag = 0;
 
-	crypto_init();
-
 	if (pledge("cpath rpath stdio tty wpath", NULL) == -1)
 		err(1, "pledge");
 
@@ -91,9 +90,8 @@ main(int argc, char *argv[])
 
 	if (argc != 2)
 		usage();
-	filecrypt(argv[0], argv[1], dflag ? 0 : 1);
 
-	crypto_deinit();
+	filecrypt(argv[0], argv[1], dflag ? 0 : 1);
 
 	exit(EXIT_SUCCESS);
 }
@@ -191,6 +189,8 @@ filecrypt(char *infile, char *outfile, int enc)
 	struct cipher_info *c;
 	unsigned char salt[SALT_SIZE];
 
+	crypto_init();
+
 	if ((c = calloc(1, sizeof(struct cipher_info))) == NULL)
 		err(1, NULL);
 	c->cipher_name = DEFAULT_CIPHER;
@@ -244,6 +244,8 @@ filecrypt(char *infile, char *outfile, int enc)
 	explicit_bzero(c, sizeof(struct cipher_info));
 	ERR_print_errors_fp(stderr);
 	free(c);
+
+	crypto_deinit();
 
 	return 0;
 }
