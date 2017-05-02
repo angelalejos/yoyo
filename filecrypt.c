@@ -286,14 +286,18 @@ filecrypt(char *infile, char *outfile, int enc)
 static int
 header_read(struct header *h, struct cipher_info *c, char *fname)
 {
+	/* Read the header information from file. */
 	if (fread(h, sizeof(struct header), 1, c->fin) != 1)
 		errx(1, "error reading header from %s", fname);
 
+	/* Make sure it is a valid file. */
 	if (memcmp(h->magic, magic, MAGIC_SIZE) != 0)
 		errx(1, "invalid file %s", fname);
 
+	/* Check the files version. */
 	version_check(&h->ver);
 
+	/* Setup the cipher. */
 	if ((c->cipher_name = OBJ_nid2ln(h->cipher_nid)) == NULL)
 		errx(1, "invalid nid %d", h->cipher_nid);
 	if ((c->cipher = EVP_get_cipherbyname(c->cipher_name)) == NULL)
@@ -303,6 +307,7 @@ header_read(struct header *h, struct cipher_info *c, char *fname)
 	c->key_len = EVP_CIPHER_key_length(c->cipher);
 	c->blocksize = EVP_CIPHER_block_size(c->cipher);
 
+	/* Copy the IV over to the cipher info. */
 	memcpy(c->iv, h->iv, c->iv_len);
 
 	return 0;
@@ -311,9 +316,11 @@ header_read(struct header *h, struct cipher_info *c, char *fname)
 static int
 header_write(struct header *h, struct cipher_info *c, char *fname)
 {
+	/* Set the file magic and version info. */
 	memcpy(h->magic, magic, MAGIC_SIZE);
 	version_create(&h->ver);
 
+	/* Setup the cipher. */
 	c->cipher_name = DEFAULT_CIPHER;
 	if ((c->cipher = EVP_get_cipherbyname(c->cipher_name)) == NULL)
 		errx(1, "invalid cipher %s", c->cipher_name);
@@ -322,15 +329,19 @@ header_write(struct header *h, struct cipher_info *c, char *fname)
 	c->key_len = EVP_CIPHER_key_length(c->cipher);
 	c->blocksize = EVP_CIPHER_block_size(c->cipher);
 
+	/* Generate the salt and IV. */
 	RAND_bytes(h->salt, sizeof(h->salt));
 	RAND_bytes(c->iv, c->iv_len);
 
+	/* Store the IV and cipher in the header. */
 	memcpy(h->iv, c->iv, c->iv_len);
 	if ((h->cipher_nid = OBJ_txt2nid(c->cipher_name)) == NID_undef)
 		errx(1, "invalid cipher %s for nid", c->cipher_name);
 
+	/* Set number of rounds for kdf. */
 	h->rounds = rflag ? rflag : DEFAULT_ROUNDS;
 
+	/* Write the header to file. */
 	if (fwrite(h, sizeof(struct header), 1, c->fout) != 1)
 		errx(1, "error writing header to %s", fname);
 
@@ -409,6 +420,7 @@ version_check(struct version *v2)
 
 	version_create(&v1);
 
+	/* Give a warning for files generated from previous versions. */
 	if (v2->major < v1.major || v2->minor < v1.minor) {
 		warnx("header contains v%d.%d.%d data",
 		    v2->major, v2->minor, v2->revision);
