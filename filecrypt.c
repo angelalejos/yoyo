@@ -29,11 +29,12 @@
 #define BUFSIZE 1024 * 1024
 #define DEFAULT_CIPHER "aes-256-cbc"
 #define DEFAULT_ROUNDS 128
+#define MAGIC_SIZE 16
 #define MAX_LINE 4096
 #define SALT_SIZE 16
-#define VERSION_MAJOR 1
+#define VERSION_MAJOR 2
 #define VERSION_MINOR 0
-#define VERSION_REVISION 2
+#define VERSION_REVISION 0
 
 struct cipher_info {
 	FILE *fin;
@@ -55,6 +56,7 @@ struct version {
 };
 
 struct header {
+	unsigned char magic[MAGIC_SIZE];
 	int cipher_nid;
 	int rounds;
 	struct version ver;
@@ -66,6 +68,11 @@ extern char *__progname;
 extern char *optarg;
 
 int verbose;
+
+unsigned char magic[MAGIC_SIZE] = {
+	0xc9, 0x1e, 0xac, 0xeb, 0xdd, 0x41, 0x06, 0x98,
+	0x75, 0x78, 0xaf, 0x5f, 0x99, 0xe4, 0x16, 0xe7
+};
 
 __dead void usage(void);
 
@@ -79,6 +86,8 @@ static int	 header_write(struct header *, struct cipher_info *, char *);
 static void	 kdf(uint8_t *, size_t, int, int, int, uint8_t *, size_t);
 static void	 print_value(char *, unsigned char *, int);
 static char	*str_hex(char *, int, void *, int);
+static int	 version_check(struct version *);
+static int	 version_create(struct version *);
 
 int
 main(int argc, char *argv[])
@@ -106,6 +115,11 @@ main(int argc, char *argv[])
 	}
 	argc -= optind;
 	argv += optind;
+
+	if (verbose) {
+		printf("%s v%d.%d.%d\n", __progname, VERSION_MAJOR,
+		    VERSION_MINOR, VERSION_REVISION);
+	}
 
 	if (argc != 2)
 		usage();
@@ -265,6 +279,11 @@ header_read(struct header *h, struct cipher_info *c, char *fname)
 	if (fread(h, sizeof(struct header), 1, c->fin) != 1)
 		errx(1, "error reading header from %s", fname);
 
+	if (memcmp(h->magic, magic, MAGIC_SIZE) != 0)
+		errx(1, "invalid file %s", fname);
+
+	version_check(&h->ver);
+
 	if ((c->cipher_name = OBJ_nid2ln(h->cipher_nid)) == NULL)
 		errx(1, "invalid nid %d", h->cipher_nid);
 	if ((c->cipher = EVP_get_cipherbyname(c->cipher_name)) == NULL)
@@ -282,12 +301,10 @@ header_read(struct header *h, struct cipher_info *c, char *fname)
 static int
 header_write(struct header *h, struct cipher_info *c, char *fname)
 {
+	memcpy(h->magic, magic, MAGIC_SIZE);
+	version_create(&h->ver);
+
 	c->cipher_name = DEFAULT_CIPHER;
-
-	h->ver.major = VERSION_MAJOR;
-	h->ver.minor = VERSION_MINOR;
-	h->ver.revision = VERSION_REVISION;
-
 	if ((c->cipher = EVP_get_cipherbyname(c->cipher_name)) == NULL)
 		errx(1, "invalid cipher %s", c->cipher_name);
 
@@ -373,4 +390,29 @@ str_hex(char *str, int size, void *data, int len)
 	}
 
 	return str;
+}
+
+static int
+version_check(struct version *v2)
+{
+	struct version v1;
+
+	version_create(&v1);
+
+	if (v2->major < v1.major || v2->minor < v1.minor) {
+		warnx("header contains v%d.%d.%d data",
+		    v2->major, v2->minor, v2->revision);
+	}
+
+	return 0;
+}
+
+static int
+version_create(struct version *v)
+{
+	v->major = VERSION_MAJOR;
+	v->minor = VERSION_MINOR;
+	v->revision = VERSION_REVISION;
+
+	return 0;
 }
