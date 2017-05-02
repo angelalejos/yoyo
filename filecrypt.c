@@ -215,21 +215,19 @@ filecrypt(char *infile, char *outfile, int enc)
 
 	c->enc = enc;
 
+	/* Open the files. */
 	if ((c->fin = fopen(infile, "r")) == NULL)
 		err(1, "%s", infile);
 	if ((c->fout = fopen(outfile, "w")) == NULL)
 		err(1, "%s", outfile);
 
+	/* Read or write header. */
 	if (c->enc)
 		header_write(h, c, outfile);
 	else
 		header_read(h, c, infile);
 
-	if (verbose) {
-		printf("cipher: %s blocksize: %dbit rounds: %d\n",
-		    c->cipher_name, c->blocksize * 8, h->rounds);
-	}
-
+	/* Get the key from passphrase and salt. */
 	kdf(h->salt, sizeof(h->salt), h->rounds, 1, c->enc ? 1 : 0,
 	    c->key, c->key_len);
 
@@ -237,23 +235,24 @@ filecrypt(char *infile, char *outfile, int enc)
 		err(1, "pledge");
 
 	if (verbose) {
+		printf("cipher = %s\nblocksize = %dbit\nrounds = %d\n",
+		    c->cipher_name, c->blocksize * 8, h->rounds);
 		print_value("salt", h->salt, sizeof(h->salt));
 		print_value("iv", c->iv, c->iv_len);
 		print_value("key", c->key, c->key_len);
 	}
 
+	/* Perform the cipher operation. */
 	crypto_stream(c);
 
+	/* Clean up. */
 	fclose(c->fin);
 	fclose(c->fout);
-
 	explicit_bzero(c, sizeof(struct cipher_info));
-	explicit_bzero(h, sizeof(struct header));
+	free(h);
+	free(c);
 
 	ERR_print_errors_fp(stderr);
-
-	free(c);
-	free(h);
 
 	crypto_deinit();
 

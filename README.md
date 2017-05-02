@@ -1,2 +1,2 @@
 # filecrypt
-File encryption for OpenBSD using bcrypt and aes128
+File encryption for OpenBSD using bcrypt and LibreSSL
