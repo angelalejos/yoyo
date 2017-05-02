@@ -31,6 +31,8 @@
 #define DEFAULT_ROUNDS 128
 #define MAGIC_SIZE 16
 #define MAX_LINE 4096
+#define R_MAX 4096
+#define R_MIN 16
 #define SALT_SIZE 16
 #define VERSION_MAJOR 2
 #define VERSION_MINOR 0
@@ -68,6 +70,7 @@ extern char *__progname;
 extern char *optarg;
 
 int verbose;
+int rflag;
 
 unsigned char magic[MAGIC_SIZE] = {
 	0xc9, 0x1e, 0xac, 0xeb, 0xdd, 0x41, 0x06, 0x98,
@@ -93,6 +96,7 @@ int
 main(int argc, char *argv[])
 {
 	char ch;
+	const char *errstr;
 	int dflag;
 
 	dflag = 0;
@@ -100,11 +104,15 @@ main(int argc, char *argv[])
 	if (pledge("cpath rpath stdio tty wpath", NULL) == -1)
 		err(1, "pledge");
 
-	while ((ch = getopt(argc, argv, "dv")) != -1) {
+	while ((ch = getopt(argc, argv, "dr:v")) != -1) {
 		switch (ch) {
 		case 'd':
 			dflag = 1;
 			break;
+		case 'r':
+			rflag = strtonum(optarg, R_MIN, R_MAX, &errstr);
+			if (errstr != NULL)
+				errx(1, "rounds %s", errstr);
 		case 'v':
 			verbose = 1;
 			break;
@@ -132,7 +140,9 @@ main(int argc, char *argv[])
 void
 usage(void)
 {
-	fprintf(stderr, "usage: %s [-dv] infile outfile\n", __progname);
+	fprintf(stderr, "usage: %s [-dv] ", __progname);
+	fprintf(stderr, "[-r rounds] infile outfile\n");
+
 	exit(EXIT_FAILURE);
 }
 
@@ -319,7 +329,7 @@ header_write(struct header *h, struct cipher_info *c, char *fname)
 	if ((h->cipher_nid = OBJ_txt2nid(c->cipher_name)) == NID_undef)
 		errx(1, "invalid cipher %s for nid", c->cipher_name);
 
-	h->rounds = DEFAULT_ROUNDS;
+	h->rounds = rflag ? rflag : DEFAULT_ROUNDS;
 
 	if (fwrite(h, sizeof(struct header), 1, c->fout) != 1)
 		errx(1, "error writing header to %s", fname);
