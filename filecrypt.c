@@ -27,22 +27,39 @@
 #include <openssl/rand.h>
 
 #define BUFSIZE 1024 * 1024
-#define DEFAULT_CIPHER "aes-128-cbc"
+#define DEFAULT_CIPHER "aes-256-cbc"
+#define DEFAULT_ROUNDS 128
 #define MAX_LINE 4096
-#define ROUNDS 64
 #define SALT_SIZE 16
-#define VERSION "1.0.1"
+#define VERSION_MAJOR 1
+#define VERSION_MINOR 0
+#define VERSION_REVISION 2
 
 struct cipher_info {
 	FILE *fin;
 	FILE *fout;
 	const EVP_CIPHER *cipher;
 	const char *cipher_name;
+	int blocksize;
 	int enc;
 	int iv_len;
 	int key_len;
 	unsigned char iv[EVP_MAX_IV_LENGTH];
 	unsigned char key[EVP_MAX_KEY_LENGTH];
+};
+
+struct version {
+	short major;
+	short minor;
+	short revision;
+};
+
+struct header {
+	int cipher_nid;
+	int rounds;
+	struct version ver;
+	unsigned char iv[EVP_MAX_IV_LENGTH];
+	unsigned char salt[SALT_SIZE];
 };
 
 extern char *__progname;
@@ -57,6 +74,8 @@ static void	 crypto_error(void);
 static int	 crypto_init(void);
 static int	 crypto_stream(struct cipher_info *);
 static int	 filecrypt(char *, char *, int);
+static int	 header_read(struct header *, struct cipher_info *, char *);
+static int	 header_write(struct header *, struct cipher_info *, char *);
 static void	 kdf(uint8_t *, size_t, int, int, int, uint8_t *, size_t);
 static void	 print_value(char *, unsigned char *, int);
 static char	*str_hex(char *, int, void *, int);
@@ -184,68 +203,110 @@ crypto_stream(struct cipher_info *ci)
 static int
 filecrypt(char *infile, char *outfile, int enc)
 {
-	int blocksize;
-	int rounds;
 	struct cipher_info *c;
-	unsigned char salt[SALT_SIZE];
+	struct header *h;
 
 	crypto_init();
 
 	if ((c = calloc(1, sizeof(struct cipher_info))) == NULL)
 		err(1, NULL);
-	c->cipher_name = DEFAULT_CIPHER;
+	if ((h = calloc(1, sizeof(struct header))) == NULL)
+		err(1, NULL);
+
 	c->enc = enc;
-	rounds = ROUNDS;
-
-	if ((c->cipher = EVP_get_cipherbyname(c->cipher_name)) == NULL)
-		errx(1, "invalid cipher %s", c->cipher_name);
-	c->iv_len = EVP_CIPHER_iv_length(c->cipher);
-	c->key_len = EVP_CIPHER_key_length(c->cipher);
-	blocksize = EVP_CIPHER_block_size(c->cipher);
-
-	if (verbose) {
-		printf("cipher: %s blocksize: %dbit rounds: %d\n",
-		    c->cipher_name, blocksize * 8, rounds);
-	}
 
 	if ((c->fin = fopen(infile, "r")) == NULL)
 		err(1, "%s", infile);
 	if ((c->fout = fopen(outfile, "w")) == NULL)
 		err(1, "%s", outfile);
 
-	if (c->enc) {
-		RAND_bytes(salt, sizeof(salt));
-		RAND_bytes(c->iv, c->iv_len);
-		if (fwrite(salt, sizeof(salt), 1, c->fout) != 1)
-			errx(1, "error writing salt to %s", infile);
-		if (fwrite(c->iv, c->iv_len, 1, c->fout) != 1)
-			errx(1, "error writing iv to %s", infile);
-	} else {
-		if (fread(salt, sizeof(salt), 1, c->fin) != 1)
-			errx(1, "error reading salt from %s", infile);
-		if (fread(c->iv, c->iv_len, 1, c->fin) != 1)
-			errx(1, "error reading iv from %s", infile);
+	if (c->enc)
+		header_write(h, c, outfile);
+	else
+		header_read(h, c, infile);
+
+	if (verbose) {
+		printf("cipher: %s blocksize: %dbit rounds: %d\n",
+		    c->cipher_name, c->blocksize * 8, h->rounds);
 	}
 
-	kdf(salt, sizeof(salt), rounds, 1, c->enc ? 1 : 0, c->key, c->key_len);
+	kdf(h->salt, sizeof(h->salt), h->rounds, 1, c->enc ? 1 : 0,
+	    c->key, c->key_len);
 
 	if (pledge("stdio", NULL) == -1)
 		err(1, "pledge");
 
 	if (verbose) {
-		print_value("salt", salt, sizeof(salt));
+		print_value("salt", h->salt, sizeof(h->salt));
 		print_value("iv", c->iv, c->iv_len);
 		print_value("key", c->key, c->key_len);
 	}
 
 	crypto_stream(c);
+
 	fclose(c->fin);
 	fclose(c->fout);
+
 	explicit_bzero(c, sizeof(struct cipher_info));
+	explicit_bzero(h, sizeof(struct header));
+
 	ERR_print_errors_fp(stderr);
+
 	free(c);
+	free(h);
 
 	crypto_deinit();
+
+	return 0;
+}
+
+static int
+header_read(struct header *h, struct cipher_info *c, char *fname)
+{
+	if (fread(h, sizeof(struct header), 1, c->fin) != 1)
+		errx(1, "error reading header from %s", fname);
+
+	if ((c->cipher_name = OBJ_nid2ln(h->cipher_nid)) == NULL)
+		errx(1, "invalid nid %d", h->cipher_nid);
+	if ((c->cipher = EVP_get_cipherbyname(c->cipher_name)) == NULL)
+		errx(1, "invalid cipher %s", c->cipher_name);
+
+	c->iv_len = EVP_CIPHER_iv_length(c->cipher);
+	c->key_len = EVP_CIPHER_key_length(c->cipher);
+	c->blocksize = EVP_CIPHER_block_size(c->cipher);
+
+	memcpy(c->iv, h->iv, c->iv_len);
+
+	return 0;
+}
+
+static int
+header_write(struct header *h, struct cipher_info *c, char *fname)
+{
+	c->cipher_name = DEFAULT_CIPHER;
+
+	h->ver.major = VERSION_MAJOR;
+	h->ver.minor = VERSION_MINOR;
+	h->ver.revision = VERSION_REVISION;
+
+	if ((c->cipher = EVP_get_cipherbyname(c->cipher_name)) == NULL)
+		errx(1, "invalid cipher %s", c->cipher_name);
+
+	c->iv_len = EVP_CIPHER_iv_length(c->cipher);
+	c->key_len = EVP_CIPHER_key_length(c->cipher);
+	c->blocksize = EVP_CIPHER_block_size(c->cipher);
+
+	RAND_bytes(h->salt, sizeof(h->salt));
+	RAND_bytes(c->iv, c->iv_len);
+
+	memcpy(h->iv, c->iv, c->iv_len);
+	if ((h->cipher_nid = OBJ_txt2nid(c->cipher_name)) == NID_undef)
+		errx(1, "invalid cipher %s for nid", c->cipher_name);
+
+	h->rounds = DEFAULT_ROUNDS;
+
+	if (fwrite(h, sizeof(struct header), 1, c->fout) != 1)
+		errx(1, "error writing header to %s", fname);
 
 	return 0;
 }
