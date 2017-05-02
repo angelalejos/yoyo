@@ -28,11 +28,11 @@
 
 #define BUFSIZE 1024 * 1024
 #define DEFAULT_CIPHER "aes-256-cbc"
-#define DEFAULT_ROUNDS 128
+#define DEFAULT_ROUNDS 64
 #define MAGIC_SIZE 16
 #define MAX_LINE 4096
 #define R_MAX 4096
-#define R_MIN 16
+#define R_MIN 4
 #define SALT_SIZE 16
 #define VERSION_MAJOR 2
 #define VERSION_MINOR 0
