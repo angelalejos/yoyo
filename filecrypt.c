@@ -260,9 +260,9 @@ filecrypt(char *infile, char *outfile, int enc)
 	crypto_stream(c);
 
 	/* Clean up. */
+	explicit_bzero(c->key, sizeof(c->key));
 	fclose(c->fin);
 	fclose(c->fout);
-	explicit_bzero(c, sizeof(struct cipher_info));
 	free(h);
 	free(c);
 
