@@ -28,7 +28,7 @@
 
 #define BUFSIZE 1024 * 1024
 #define DEFAULT_CIPHER "aes-256-cbc"
-#define DEFAULT_ROUNDS 64
+#define DEFAULT_ROUNDS 128
 #define MAGIC_SIZE 16
 #define MAX_LINE 4096
 #define R_MAX 4096
@@ -36,7 +36,7 @@
 #define SALT_SIZE 16
 #define VERSION_MAJOR 2
 #define VERSION_MINOR 0
-#define VERSION_REVISION 0
+#define VERSION_REVISION 1
 
 struct cipher_info {
 	FILE *fin;
@@ -113,6 +113,7 @@ main(int argc, char *argv[])
 			rflag = strtonum(optarg, R_MIN, R_MAX, &errstr);
 			if (errstr != NULL)
 				errx(1, "rounds %s", errstr);
+			break;
 		case 'v':
 			verbose = 1;
 			break;
