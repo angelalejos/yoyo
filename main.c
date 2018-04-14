@@ -51,14 +51,14 @@ extern char *optarg;
 
 __dead void	 usage(void);
 
-void	 crypto_error(void);
-int	 crypto_stream(struct cipher_info *);
-int	 filecrypt(struct cipher_info *);
-int	 header_read(struct cipher_info *);
-int	 header_write(struct cipher_info *);
-int	 kdf(struct cipher_info *);
-int 	 passwd_read_file(char *, size_t, char *);
-int 	 passwd_read_tty(char *, size_t, int);
+void		 crypto_error(void);
+int		 crypto_stream(struct cipher_info *);
+int		 filecrypt(struct cipher_info *);
+int		 header_read(struct cipher_info *);
+int		 header_write(struct cipher_info *);
+int		 kdf(struct cipher_info *);
+int 		 passwd_read_file(char *, size_t, char *);
+int 		 passwd_read_tty(char *, size_t, int);
 
 int
 main(int argc, char *argv[])
@@ -66,7 +66,7 @@ main(int argc, char *argv[])
 	char ch;
 	struct cipher_info *c;
 
-	if (pledge("cpath rpath stdio tty wpath", NULL) == -1)
+	if (pledge("rpath stdio tty", NULL) == -1)
 		err(1, "pledge");
 
 	if ((c = calloc(1, sizeof(struct cipher_info))) == NULL)
@@ -204,6 +204,7 @@ header_read(struct cipher_info *c)
 	c->cipher_name = DEFAULT_CIPHER;
 	if ((c->cipher = EVP_get_cipherbyname(c->cipher_name)) == NULL)
 		errx(1, "invalid cipher %s", c->cipher_name);
+
 	c->iv_len = EVP_CIPHER_iv_length(c->cipher);
 	c->key_len = EVP_CIPHER_key_length(c->cipher);
 
@@ -227,6 +228,25 @@ header_write(struct cipher_info *c)
 		errx(1, "error writing salt");
 	if (fwrite(c->iv, sizeof(c->iv), 1, c->fout) != 1)
 		errx(1, "error writing iv");
+
+	return 0;
+}
+
+int
+kdf(struct cipher_info *c)
+{
+	char passwd[PASSWD_MAX];
+
+	if (c->keyfile[0] != '\0')
+		passwd_read_file(passwd, sizeof(passwd), c->keyfile);
+	else
+		passwd_read_tty(passwd, sizeof(passwd), c->enc);
+
+	if (bcrypt_pbkdf(passwd, strlen(passwd), c->salt, sizeof(c->salt),
+	    c->key, c->key_len, ROUNDS) == -1)
+		errx(1, "bcrypt_pbkdf failure");
+
+	explicit_bzero(passwd, sizeof(passwd));
 
 	return 0;
 }
@@ -307,25 +327,6 @@ passwd_read_tty(char *pass, size_t size, int confirm)
 			errx(1, "passwords don't match");
 		explicit_bzero(pass2, sizeof(pass2));
 	}
-
-	return 0;
-}
-
-int
-kdf(struct cipher_info *c)
-{
-	char passwd[PASSWD_MAX];
-
-	if (c->keyfile[0] != '\0')
-		passwd_read_file(passwd, sizeof(passwd), c->keyfile);
-	else
-		passwd_read_tty(passwd, sizeof(passwd), c->enc);
-
-	if (bcrypt_pbkdf(passwd, strlen(passwd), c->salt, sizeof(c->salt),
-	    c->key, c->key_len, ROUNDS) == -1)
-		errx(1, "bcrypt pbkdf");
-
-	explicit_bzero(passwd, sizeof(passwd));
 
 	return 0;
 }
