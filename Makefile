@@ -1,28 +1,27 @@
 PROG=		filecrypt
-SRCS=		filecrypt.c
+SRCS=		main.c
 
-BINDIR=		/usr/local/bin
+LDADD=		-lcrypto -lutil
+DPADD=		${LIBCRYPTO} ${LIBUTIL}
 
-CFLAGS+=	-Wall -Werror -ansi -pedantic
+CFLAGS+=	-Wall
+CFLAGS+=	-Wstrict-prototypes -Wmissing-prototypes
 CFLAGS+=	-Wmissing-declarations
 CFLAGS+=	-Wshadow -Wpointer-arith
-CFLAGS+=	-Wsign-compare
-CFLAGS+=	-Wstrict-prototypes -Wmissing-prototypes
+CFLAGS+=	-Wsign-compare -Wcast-qual
 
-DPADD=		${LIBCRYPTO} ${LIBUTIL}
-LDADD=		-lcrypto -lutil
-
+BINDIR=		/usr/local/bin
 NOMAN=		noman
 
 secret=		secret.passphrase
-testsize=	bs=$$(($$RANDOM % 1024 + 1)) count=$$(($$RANDOM % 8192 + 1024))
+testsize=	bs=$$(($$RANDOM % 512 + 1)) count=$$(($$RANDOM % 8192 + 1024))
 
 test: ${PROG}
 	dd if=/dev/random of=foo.bin ${testsize}
-	sha256 foo.bin | tee SHA256
-	tr -cd [:graph:] < /dev/random | fold -bw 20 | head -1 | tee ${secret}
-	${PROG} -v foo.bin bar.bin < ${secret}
-	${PROG} -v -d bar.bin foo.bin < ${secret}
+	sha256 -h SHA256 foo.bin
+	tr -cd [:graph:] < /dev/random | fold -bw 40 | head -1 > ${secret}
+	${.OBJDIR}/${PROG} -k ${secret} < foo.bin > bar.bin
+	${.OBJDIR}/${PROG} -d -k ${secret} < bar.bin > foo.bin
 	sha256 -c SHA256
 
 .include <bsd.prog.mk>
