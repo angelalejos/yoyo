@@ -54,8 +54,6 @@ __dead void	 usage(void);
 void		 crypto_error(void);
 int		 crypto_stream(struct cipher_info *);
 int		 filecrypt(struct cipher_info *);
-int		 header_read(struct cipher_info *);
-int		 header_write(struct cipher_info *);
 int		 kdf(struct cipher_info *);
 int 		 passwd_read_file(char *, size_t, char *);
 int 		 passwd_read_tty(char *, size_t, int);
@@ -173,10 +171,26 @@ filecrypt(struct cipher_info *c)
 	ERR_load_crypto_strings();
 	OpenSSL_add_all_algorithms();
 
-	if (c->enc)
-		header_write(c);
-	else
-		header_read(c);
+	c->cipher_name = DEFAULT_CIPHER;
+	if ((c->cipher = EVP_get_cipherbyname(c->cipher_name)) == NULL)
+		errx(1, "invalid cipher %s", c->cipher_name);
+
+	c->iv_len = EVP_CIPHER_iv_length(c->cipher);
+	c->key_len = EVP_CIPHER_key_length(c->cipher);
+
+	if (c->enc) {
+		arc4random_buf(c->salt, sizeof(c->salt));
+		arc4random_buf(c->iv, sizeof(c->iv));
+		if (fwrite(c->salt, sizeof(c->salt), 1, c->fout) != 1)
+			errx(1, "error writing salt");
+		if (fwrite(c->iv, sizeof(c->iv), 1, c->fout) != 1)
+			errx(1, "error writing iv");
+	} else {
+		if (fread(c->salt, sizeof(c->salt), 1, c->fin) != 1)
+			errx(1, "error reading salt");
+		if (fread(c->iv, sizeof(c->iv), 1, c->fin) != 1)
+			errx(1, "error reading iv");
+	}
 
 	kdf(c);
 
@@ -189,45 +203,6 @@ filecrypt(struct cipher_info *c)
 
 	EVP_cleanup();
 	ERR_free_strings();
-
-	return 0;
-}
-
-int
-header_read(struct cipher_info *c)
-{
-	if (fread(c->salt, sizeof(c->salt), 1, c->fin) != 1)
-		errx(1, "error reading salt");
-	if (fread(c->iv, sizeof(c->iv), 1, c->fin) != 1)
-		errx(1, "error reading iv");
-
-	c->cipher_name = DEFAULT_CIPHER;
-	if ((c->cipher = EVP_get_cipherbyname(c->cipher_name)) == NULL)
-		errx(1, "invalid cipher %s", c->cipher_name);
-
-	c->iv_len = EVP_CIPHER_iv_length(c->cipher);
-	c->key_len = EVP_CIPHER_key_length(c->cipher);
-
-	return 0;
-}
-
-int
-header_write(struct cipher_info *c)
-{
-	c->cipher_name = DEFAULT_CIPHER;
-	if ((c->cipher = EVP_get_cipherbyname(c->cipher_name)) == NULL)
-		errx(1, "invalid cipher %s", c->cipher_name);
-
-	c->iv_len = EVP_CIPHER_iv_length(c->cipher);
-	c->key_len = EVP_CIPHER_key_length(c->cipher);
-
-	arc4random_buf(c->salt, sizeof(c->salt));
-	arc4random_buf(c->iv, sizeof(c->iv));
-
-	if (fwrite(c->salt, sizeof(c->salt), 1, c->fout) != 1)
-		errx(1, "error writing salt");
-	if (fwrite(c->iv, sizeof(c->iv), 1, c->fout) != 1)
-		errx(1, "error writing iv");
 
 	return 0;
 }
