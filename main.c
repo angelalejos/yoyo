@@ -152,8 +152,7 @@ crypto_stream(struct cipher_info *c)
 				crypto_error();
 			done = 1;
 		}
-		n = wlen;
-		if (fwrite(out, 1, wlen, c->fout) != n)
+		if (wlen != 0 && fwrite(out, wlen, 1, c->fout) != 1)
 			errx(1, "error writing stream");
 	} while (!done);
 
