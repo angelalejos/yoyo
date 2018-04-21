@@ -1,4 +1,4 @@
-PROG=		filecrypt
+PROG=		yoyo
 SRCS=		main.c
 
 LDADD=		-lcrypto -lutil

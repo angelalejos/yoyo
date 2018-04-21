@@ -1,2 +1,2 @@
-# filecrypt
-File encryption for OpenBSD using bcrypt and LibreSSL
+# yoyo
+Stream encryption for OpenBSD using bcrypt and LibreSSL

@@ -53,10 +53,10 @@ __dead void	 usage(void);
 
 void		 crypto_error(void);
 int		 crypto_stream(struct cipher_info *);
-int		 filecrypt(struct cipher_info *);
 int		 kdf(struct cipher_info *);
 int 		 passwd_read_file(char *, size_t, char *);
 int 		 passwd_read_tty(char *, size_t, int);
+int		 yoyo(struct cipher_info *);
 
 int
 main(int argc, char *argv[])
@@ -90,7 +90,7 @@ main(int argc, char *argv[])
 	argc -= optind;
 	argv += optind;
 
-	filecrypt(c);
+	yoyo(c);
 
 	freezero(c, sizeof(struct cipher_info));
 
@@ -160,44 +160,6 @@ crypto_stream(struct cipher_info *c)
 
 	freezero(out, outl);
 	freezero(in, inl);
-
-	return 0;
-}
-
-int
-filecrypt(struct cipher_info *c)
-{
-	ERR_load_crypto_strings();
-
-	c->cipher_name = DEFAULT_CIPHER;
-	if ((c->cipher = EVP_get_cipherbyname(c->cipher_name)) == NULL)
-		errx(1, "invalid cipher %s", c->cipher_name);
-
-	c->iv_len = EVP_CIPHER_iv_length(c->cipher);
-	c->key_len = EVP_CIPHER_key_length(c->cipher);
-
-	if (c->enc) {
-		arc4random_buf(c->salt, sizeof(c->salt));
-		arc4random_buf(c->iv, sizeof(c->iv));
-		if (fwrite(c->salt, sizeof(c->salt), 1, c->fout) != 1)
-			errx(1, "error writing salt");
-		if (fwrite(c->iv, sizeof(c->iv), 1, c->fout) != 1)
-			errx(1, "error writing iv");
-	} else {
-		if (fread(c->salt, sizeof(c->salt), 1, c->fin) != 1)
-			errx(1, "error reading salt");
-		if (fread(c->iv, sizeof(c->iv), 1, c->fin) != 1)
-			errx(1, "error reading iv");
-	}
-
-	kdf(c);
-
-	if (pledge("stdio", NULL) == -1)
-		err(1, "pledge");
-
-	crypto_stream(c);
-
-	ERR_free_strings();
 
 	return 0;
 }
@@ -297,6 +259,44 @@ passwd_read_tty(char *pass, size_t size, int confirm)
 			errx(1, "passwords don't match");
 		explicit_bzero(pass2, sizeof(pass2));
 	}
+
+	return 0;
+}
+
+int
+yoyo(struct cipher_info *c)
+{
+	ERR_load_crypto_strings();
+
+	c->cipher_name = DEFAULT_CIPHER;
+	if ((c->cipher = EVP_get_cipherbyname(c->cipher_name)) == NULL)
+		errx(1, "invalid cipher %s", c->cipher_name);
+
+	c->iv_len = EVP_CIPHER_iv_length(c->cipher);
+	c->key_len = EVP_CIPHER_key_length(c->cipher);
+
+	if (c->enc) {
+		arc4random_buf(c->salt, sizeof(c->salt));
+		arc4random_buf(c->iv, sizeof(c->iv));
+		if (fwrite(c->salt, sizeof(c->salt), 1, c->fout) != 1)
+			errx(1, "error writing salt");
+		if (fwrite(c->iv, sizeof(c->iv), 1, c->fout) != 1)
+			errx(1, "error writing iv");
+	} else {
+		if (fread(c->salt, sizeof(c->salt), 1, c->fin) != 1)
+			errx(1, "error reading salt");
+		if (fread(c->iv, sizeof(c->iv), 1, c->fin) != 1)
+			errx(1, "error reading iv");
+	}
+
+	kdf(c);
+
+	if (pledge("stdio", NULL) == -1)
+		err(1, "pledge");
+
+	crypto_stream(c);
+
+	ERR_free_strings();
 
 	return 0;
 }
