@@ -138,8 +138,7 @@ crypto_stream(struct cipher_info *c)
 	if ((ctx = EVP_CIPHER_CTX_new()) == NULL)
 		crypto_error();
 
-	if (EVP_CipherInit_ex(ctx, c->cipher, NULL,
-	    c->key, c->iv, c->enc) != 1)
+	if (EVP_CipherInit_ex(ctx, c->cipher, NULL, c->key, c->iv, c->enc) != 1)
 		crypto_error();
 
 	do {
