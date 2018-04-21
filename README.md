@@ -1,3 +1,3 @@
 # yoyo
-Stream encryption for OpenBSD using bcrypt and
+OpenBSD encryption utility using
 [LibreSSL](https://www.libressl.org/).
