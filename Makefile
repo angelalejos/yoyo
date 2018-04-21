@@ -4,7 +4,7 @@ SRCS=		main.c
 LDADD=		-lcrypto -lutil
 DPADD=		${LIBCRYPTO} ${LIBUTIL}
 
-CFLAGS+=	-Wall
+CFLAGS+=	-Wall -Werror
 CFLAGS+=	-Wstrict-prototypes -Wmissing-prototypes
 CFLAGS+=	-Wmissing-declarations
 CFLAGS+=	-Wshadow -Wpointer-arith

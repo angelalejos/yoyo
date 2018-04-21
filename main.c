@@ -116,11 +116,11 @@ crypto_error(void)
 int
 crypto_stream(struct cipher_info *c)
 {
-	EVP_CIPHER_CTX ctx;
+	EVP_CIPHER_CTX *ctx;
 	int done;
 	int inl;
 	int outl;
-	int written;
+	int wlen;
 	size_t n;
 	unsigned char *in;
 	unsigned char *out;
@@ -135,29 +135,29 @@ crypto_stream(struct cipher_info *c)
 	if ((out = malloc(outl)) == NULL)
 		err(1, NULL);
 
-	EVP_CIPHER_CTX_init(&ctx);
-	if (EVP_CipherInit_ex(&ctx, c->cipher, NULL,
+	if ((ctx = EVP_CIPHER_CTX_new()) == NULL)
+		crypto_error();
+
+	if (EVP_CipherInit_ex(ctx, c->cipher, NULL,
 	    c->key, c->iv, c->enc) != 1)
 		crypto_error();
 
 	do {
 		if ((n = fread(in, 1, inl, c->fin)) != 0) {
-			if (EVP_CipherUpdate(&ctx, out, &written, in, n) != 1)
+			if (EVP_CipherUpdate(ctx, out, &wlen, in, n) != 1)
 				crypto_error();
 		} else {
 			if (ferror(c->fin) != 0)
-				errx(1, "error reading from input stream");
-			if (EVP_CipherFinal_ex(&ctx, out, &written) != 1)
+				errx(1, "error reading stream");
+			if (EVP_CipherFinal_ex(ctx, out, &wlen) != 1)
 				crypto_error();
 			done = 1;
 		}
-		n = written;
-		if (fwrite(out, 1, n, c->fout) != n)
-			errx(1, "failure writing to output stream");
+		if (fwrite(out, wlen, 1, c->fout) != 1)
+			errx(1, "error writing stream");
 	} while (!done);
 
-	if (EVP_CIPHER_CTX_cleanup(&ctx) != 1)
-		crypto_error();
+	EVP_CIPHER_CTX_free(ctx);
 
 	freezero(out, outl);
 	freezero(in, inl);
@@ -169,7 +169,6 @@ int
 filecrypt(struct cipher_info *c)
 {
 	ERR_load_crypto_strings();
-	OpenSSL_add_all_algorithms();
 
 	c->cipher_name = DEFAULT_CIPHER;
 	if ((c->cipher = EVP_get_cipherbyname(c->cipher_name)) == NULL)
@@ -199,9 +198,6 @@ filecrypt(struct cipher_info *c)
 
 	crypto_stream(c);
 
-	ERR_print_errors_fp(stderr);
-
-	EVP_cleanup();
 	ERR_free_strings();
 
 	return 0;
