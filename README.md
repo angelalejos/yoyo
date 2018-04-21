@@ -2,9 +2,9 @@
 OpenBSD encryption utility using
 [LibreSSL](https://www.libressl.org/).
 
-### Why not simply use openssl.exe?
+### Why not simply use openssl?
 
-openssl.exe uses
+openssl uses
 [EVP_BytesToKey](https://www.openssl.org/docs/manmaster/man3/EVP_BytesToKey.html)
 with 1 round of MD5 and a 64-bit salt to derive your key by default.
 
