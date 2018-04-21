@@ -6,10 +6,10 @@ OpenBSD encryption utility using
 
 openssl.exe uses
 [EVP_BytesToKey](https://www.openssl.org/docs/manmaster/man3/EVP_BytesToKey.html)
-1 round of MD5 and a 64 bit salt to derive your key by default.
+with 1 round of MD5 and a 64-bit salt to derive your key by default.
 
 ### What does yoyo use as password-based key derivation function?
 
 128 rounds of
 [bcrypt_pbkdf(3)](https://man.openbsd.org/bcrypt_pbkdf)
-and a 128 bit salt.
+and a 128-bit salt.
