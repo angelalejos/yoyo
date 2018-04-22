@@ -11,7 +11,7 @@ CFLAGS+=	-Wshadow -Wpointer-arith
 CFLAGS+=	-Wsign-compare -Wcast-qual
 
 BINDIR=		/usr/local/bin
-NOMAN=		noman
+MANDIR=		/usr/local/man/man
 
 secret=		secret.passphrase
 testsize=	bs=$$(($$RANDOM % 512 + 1)) count=$$(($$RANDOM % 8192 + 1024))

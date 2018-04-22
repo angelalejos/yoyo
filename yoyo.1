@@ -39,10 +39,12 @@ Read passphrase from
 .El
 .Sh EXAMPLES
 Encrypt a file using a passphrase:
-.Dl $ yoyo < plaintext.file > ciphertext.file
+.Pp
+.Dl $ yoyo < plaintext > ciphertext
 .Pp
 Decrypt a file using a passphrase:
-.Dl $ yoyo -d < ciphertext.file > plaintext.file.2
+.Pp
+.Dl $ yoyo -d < ciphertext > plaintext
 .Sh SEE ALSO
 .Xr pledge 2 ,
 .Xr bcrypt_pbkdf 3 ,
